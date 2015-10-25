@@ -46,7 +46,6 @@
                                         :output-dir    "resources/public/js/out"
                                         :asset-path   "js/out"
                                         :optimizations :none
-                                        :source-map true
                                         :pretty-print  true}}}}
 
   :profiles {:dev {:repl-options {:init-ns jiyi.repl}
@@ -59,7 +58,9 @@
                                   [pjstadig/humane-test-output "0.7.0"]]
 
                    :source-paths ["env/dev/clj"]
-                   :plugins [[lein-figwheel "0.4.0"]
+                   :plugins [[lein-figwheel "0.4.1"]
+                             [cider/cider-nrepl "0.10.0-SNAPSHOT"]
+                             [refactor-nrepl "2.0.0-SNAPSHOT"]
                              [lein-cljsbuild "1.1.0"]]
 
                    :injections [(require 'pjstadig.humane-test-output)
@@ -68,7 +69,9 @@
                    :figwheel {:http-server-root "public"
                               :server-port 3449
                               :nrepl-port 7002
-                              :nrepl-middleware ["cemerick.piggieback/wrap-cljs-repl"]
+                              :nrepl-middleware ["cemerick.piggieback/wrap-cljs-repl"
+                                                 "cider.nrepl/cider-middleware"
+                                                 "refactor-nrepl.middleware/wrap-refactor"]
                               :css-dirs ["resources/public/css"]
                               :ring-handler jiyi.handler/app}
 

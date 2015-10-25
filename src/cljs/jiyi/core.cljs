@@ -97,7 +97,7 @@
                                (go
                                  (reset! search-results (<! (<search-user newval)))))))}]]]
    ;;Results
-   (SearchResults @search-results)])
+   [SearchResults @search-results ]])
 
 (add-watch search-results :search-results
   (fn [key atom old-state new-state]

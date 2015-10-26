@@ -13,19 +13,55 @@
 
 (enable-console-print!)
 
-(defonce user (atom {}))
-;; (defonce search-term (atom ""))
-;; (defonce search-results (atom []))
 
-;; -------------------------
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Stores
+
+(defonce user (atom {}))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Actions
+
+
+(defn- extract-content [] (map #(-> % :body :Entries)))
+
+(defn <get-user 
+  [userid]
+  (http/jsonp "https://genome.klick.com:443/api/User.json"
+              {:query-params {"UserID" userid}
+               :channel (chan 1 (extract-content))}))
+
+(defn <search-user 
+  [keyword]
+  (http/jsonp "https://genome.klick.com:443/api/User.json"
+              {:query-params {:ForAutocompleter true
+                              :Enabled true
+                              :IsNotAPerson false
+                              :Keyword keyword}
+               :channel (chan 1 (extract-content))}))
+
+
+(defn json->userdetails [json]
+  {:id (:UserID json)
+   :photo (str "https://genome.klick.com" (:PhotoPath json))
+   :name (:Name json)
+   :title (:Title json)
+   :dept (:BusinessUnitName json)})
+
+(defn save-to-atom [atm id]
+  (go
+    (as-> (<! (<get-user id)) $
+      (first $) 
+      (json->userdetails $)
+      (reset! user $))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Views
 
 
 
-(defn home-page []
-  [:div [:h2 "Yo, Welcome to jiyi"]])
-
-(defn Card []
+(defn Card [user]
   (let [{:keys [id photo name title dept]} @user]
     [:div.card {:style {:width "400px" :height "600px"}}
      [:div.card-image.waves-effect.waves-block.waves-light
@@ -52,35 +88,11 @@
        [:p dept]]]]))
 
 
-(defn about-page []
-  [:div [:h2 "About jiyi"]])
-
-(defn- extract-content [] (map #(-> % :body :Entries)))
-
-(defn <get-user 
-  [userid]
-  (http/jsonp "https://genome.klick.com:443/api/User.json"
-              {:query-params {"UserID" userid}
-               :channel (chan 1 (extract-content))}))
-
-(defn <search-user 
-  [keyword]
-  (http/jsonp "https://genome.klick.com:443/api/User.json"
-              {:query-params {:ForAutocompleter true
-                              :Enabled true
-                              :IsNotAPerson false
-                              :Keyword keyword}
-               :channel (chan 1 (extract-content))}))
-
-;; (go
-;;   (prn (<! (<search-user "ash"))))
-
-
 (defn SearchResults [results]
   [:div.row
    [:ul.collection
     (map (fn [result]
-           [:li.collection-item {:key (:UserID result)} (:Name result)])
+           [:li.collection-item ^{:key (:UserID result)} (:Name result)])
          results)]])
 
 (defn Search []
@@ -99,35 +111,20 @@
                                  (when-not (empty? newval) 
                                    (go
                                      (reset! search-results (<! (<search-user newval)))))))}]]]
-       ;;Results
        [SearchResults @search-results ]])))
 
 
-(defn json->userdetails [json]
-  {:id (:UserID json)
-   :photo (str "https://genome.klick.com" (:PhotoPath json))
-   :name (:Name json)
-   :title (:Title json)
-   :dept (:BusinessUnitName json)})
-
-(defn save-to-atom [atm id]
-  (go
-    (as-> (<! (<get-user id)) $
-      (first $) 
-      (json->userdetails $)
-      (reset! user $))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Routes
 
 (save-to-atom user 5702)
 
-(defn card [] (Card))
-(defn search [] (Search))
+(defn card [] (Card user))
 
+(defn search [] (Search))
 
 (defn current-page []
   [:div [(session/get :current-page)]])
-
-;; -------------------------
-;; Routes
 (secretary/set-config! :prefix "#")
 
 (secretary/defroute "/" []
@@ -139,8 +136,6 @@
 (secretary/defroute "/search" []
   (session/put! :current-page #'search))
 
-(secretary/defroute "/about" []
-  (session/put! :current-page #'about-page))
 
 ;; -------------------------
 ;; History

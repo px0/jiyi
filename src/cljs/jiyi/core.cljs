@@ -14,8 +14,8 @@
 (enable-console-print!)
 
 (defonce user (atom {}))
-(defonce search-term (atom ""))
-(defonce search-results (atom []))
+;; (defonce search-term (atom ""))
+;; (defonce search-results (atom []))
 
 ;; -------------------------
 ;; Views
@@ -84,25 +84,23 @@
          results)]])
 
 (defn Search []
-  [:div
-   [:div.row
-    [:div.input-field.col.s12
-     [:input {:placeholder "Search term"
-              :type :text
-              :value @search-term
-              :on-change (fn [e]
-                           (let [newval (-> e .-target .-value)]
-                             (reset! search-term newval)
-                             (when-not (empty? newval) 
-                               (go
-                                 (reset! search-results (<! (<search-user newval)))))))}]]]
-   ;;Results
-   [SearchResults @search-results ]])
-
-(add-watch search-results :search-results
-  (fn [key atom old-state new-state]
-    (prn "-- Atom Changed --")
-    (prn key new-state)))
+  (let [search-term (atom "")
+        search-results (atom [])]
+    (fn []
+      [:div
+       [:div.row
+        [:div.input-field.col.s12
+         [:input {:placeholder "Search term"
+                  :type :text
+                  :value @search-term
+                  :on-change (fn [e]
+                               (let [newval (-> e .-target .-value)]
+                                 (reset! search-term newval)
+                                 (when-not (empty? newval) 
+                                   (go
+                                     (reset! search-results (<! (<search-user newval)))))))}]]]
+       ;;Results
+       [SearchResults @search-results ]])))
 
 
 (defn json->userdetails [json]

@@ -54,7 +54,7 @@
                                   [ring/ring-devel "1.4.0"]
                                   [lein-figwheel "0.4.1" :exclusions [org.clojure/tools.reader]]
                                   [org.clojure/tools.nrepl "0.2.11"]
-                                  [com.cemerick/piggieback "0.1.5"]
+                                  [com.cemerick/piggieback "0.2.1"]
                                   [pjstadig/humane-test-output "0.7.0"]]
 
                    :source-paths ["env/dev/clj"]
@@ -64,7 +64,9 @@
                              [lein-cljsbuild "1.1.0"]]
 
                    :injections [(require 'pjstadig.humane-test-output)
-                                (pjstadig.humane-test-output/activate!)]
+                                (pjstadig.humane-test-output/activate!)
+                                (use 'figwheel-sidecar.repl-api)
+                                ]
 
                    :figwheel {:http-server-root "public"
                               :server-port 3449

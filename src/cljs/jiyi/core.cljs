@@ -1,5 +1,5 @@
 (ns jiyi.core
-   (:require-macros [cljs.core.async.macros :refer [go go-loop]])
+   (:require-macros [cljs.core.async.macros :refer [go go-loop alt!]])
     (:require [reagent.core :as reagent :refer [atom]]
               [reagent.session :as session]
               [secretary.core :as secretary :include-macros true]
@@ -12,7 +12,6 @@
 
 
 (enable-console-print!)
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Stores
@@ -59,11 +58,33 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Views
 
+; Source: https://gist.github.com/Deraen/946ac9e6c6211c83f1e9
+(defn debounce [in ms]
+  "Creates a channel which will change put a new value to the output channel
+   after timeout has passed. Each value change resets the timeout. If value
+   changes more frequently only the latest value is put out.
+   When input channel closes, the output channel is closed."
+  (let [out (chan)]
+    (go-loop [last-val nil]
+      (let [val (if (nil? last-val)
+                  (<! in)
+                  last-val)
+            timer (async/timeout ms)]
+        (alt!
+          in ([v] (if v
+                    (recur v)
+                    (async/close! out)))
+          timer ([_] (do
+                       (>! out val)
+                       (recur nil))))))
+    out))
+
+
 
 
 (defn Card [user]
   (let [{:keys [id photo name title dept]} @user]
-    [:div.card {:style {:width "400px" :height "600px"}}
+    [:div.card 
      [:div.card-image.waves-effect.waves-block.waves-light
       [:img.activator
        {:src photo}]]
@@ -92,12 +113,21 @@
   [:div.row
    [:ul.collection
     (map (fn [result]
-           [:li.collection-item ^{:key (:UserID result)} (:Name result)])
+           [:li.collection-item {:key (:UserID result)} (:Name result)])
          results)]])
 
 (defn Search []
   (let [search-term (atom "")
-        search-results (atom [])]
+        search-results (atom [])
+        search-channel (chan)
+        <search-user-delayed (debounce search-channel 300)]
+    (add-watch search-results :search-results
+               (fn  [k r o n]
+                 (prn k n)))
+    (go-loop []
+      (let [keyword (<! <search-user-delayed)]
+        (reset! search-results (<! (<search-user keyword)))
+        (recur)))
     (fn []
       [:div
        [:div.row
@@ -109,8 +139,7 @@
                                (let [newval (-> e .-target .-value)]
                                  (reset! search-term newval)
                                  (when-not (empty? newval) 
-                                   (go
-                                     (reset! search-results (<! (<search-user newval)))))))}]]]
+                                   (put! search-channel newval))))}]]]
        [SearchResults @search-results ]])))
 
 

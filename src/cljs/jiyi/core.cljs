@@ -17,7 +17,11 @@
 ;; Stores
 
 (defonce user (atom {}))
-
+(defonce deck (atom {:reviewed []
+                     :to-review []}))
+(comment
+  (reset! deck {:reviewed [{:id 5702, :photo "https://genome.klick.com/local-instance/staff images/5702_3525_sq.jpg", :name "Ashley Ho", :title "Medical Editor", :dept "Creative"}], :to-review [{:id 4967, :photo "https://genome.klick.com/local-instance/staff images/4967_2553.jpg", :name "Alfred Oo", :title "Application Developer", :dept "KH4 Tech"} {:id 4966, :photo "https://genome.klick.com/local-instance/staff images/4966_2688_sq.jpg", :name "Max Gerlach", :title "Senior Mobile Developer", :dept "KH4 Tech"}]})
+  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Actions
@@ -53,8 +57,48 @@
     (as-> (<! (<get-user id)) $
       (first $) 
       (json->userdetails $)
-      (reset! user $))))
+      (reset! atm $))))
 
+
+(defn remove-from-reviewed [userid]
+    (swap! deck update-in [:reviewed] #(remove (fn [m] (= userid (:id m))) %)))
+
+(defn add-to-reviewed [item]
+  (swap! deck update-in [:reviewed] conj item))
+
+(defn remove-from-to-review [userid]
+    (swap! deck update-in [:to-review] #(remove (fn [m] (= userid (:id m))) %)))
+
+(defn add-to-to-review [item]
+  (swap! deck update-in [:to-review] conj item))
+
+(defn get-item-from-to-review [userid]
+  (->> @deck
+      :to-review
+      (filter #(= (:id %) userid))
+      first))
+
+(defn mark-as-successfully-reviewed [userid]
+  (let [item (get-item-from-to-review userid)]
+    (remove-from-to-review userid)
+    (add-to-reviewed item)))
+      
+(defn mark-as-unsuccessfully-reviewed [userid]
+  (let [item (get-item-from-to-review userid)]
+    (remove-from-to-review userid)
+    (add-to-to-review item)))
+
+(defn add-user-to-deck [userid]
+  (go
+    (as-> (<! (<get-user userid)) $
+      (first $) 
+      (json->userdetails $)
+      (add-to-to-review $))))
+
+(defn reset-reviewed []
+  (let [reviewed (-> @deck :reviewed)]
+    (swap! deck assoc :reviewed [])
+    (swap! deck update-in [:to-review] conj reviewed)))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Views
 

@@ -95,10 +95,18 @@
       (json->userdetails $)
       (add-to-to-review $))))
 
+(defn all-users-in-deck []
+  (concat (:reviewed @deck) (:to-review @deck)))
+
+(defn user-in-deck? [userid]
+  (some #(= userid (:id %)) (all-users-in-deck)))
+
 (defn reset-reviewed []
   (let [reviewed (-> @deck :reviewed)]
     (swap! deck assoc :reviewed [])
     (swap! deck update-in [:to-review] conj reviewed)))
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Views
 
@@ -123,7 +131,12 @@
                        (recur nil))))))
     out))
 
-
+(defn toast
+  ([msg]
+   (toast msg 1000)
+   )
+  ([msg length]
+   (.toast js/Materialize msg length)))
 
 
 (defn Card [user]
@@ -157,8 +170,18 @@
   [:div.row
    [:ul.collection
     (map (fn [result]
-           [:li.collection-item {:key (:UserID result)} (:Name result)])
-         results)]])
+           [:li.collection-item {:key (:UserID result)}
+            (:Name result)
+            [:a.btn-small.waves-effect.waves-light {:style {:float "right"}
+                                                    :on-click (fn [e]
+                                                                (if (user-in-deck? (:UserID result))
+                                                                  (toast (str (:Name result) " is already in your deck"))
+                                                                  (do
+                                                                    (add-user-to-deck (:UserID result))
+                                                                    (toast (str "Added " (:Name result) " to your list!")))))}
+             [:i.material-icons] "add"]])
+         results
+         )]])
 
 (defn Search []
   (let [search-term (atom "")

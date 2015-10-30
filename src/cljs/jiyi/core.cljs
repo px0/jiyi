@@ -20,7 +20,14 @@
 (defonce deck (atom {:reviewed []
                      :to-review []}))
 (comment
-  (reset! deck {:reviewed [{:id 5702, :photo "https://genome.klick.com/local-instance/staff images/5702_3525_sq.jpg", :name "Ashley Ho", :title "Medical Editor", :dept "Creative"}], :to-review [{:id 4967, :photo "https://genome.klick.com/local-instance/staff images/4967_2553.jpg", :name "Alfred Oo", :title "Application Developer", :dept "KH4 Tech"} {:id 4966, :photo "https://genome.klick.com/local-instance/staff images/4966_2688_sq.jpg", :name "Max Gerlach", :title "Senior Mobile Developer", :dept "KH4 Tech"}]})
+  (do
+    (reset! deck {:reviewed [{:id 5702, :photo "https://genome.klick.com/local-instance/staff images/5702_3525_sq.jpg", :name "Ashley Ho", :title "Medical Editor", :dept "Creative"}], :to-review [{:id 4967, :photo "https://genome.klick.com/local-instance/staff images/4967_2553.jpg", :name "Alfred Oo", :title "Application Developer", :dept "KH4 Tech"} {:id 4966, :photo "https://genome.klick.com/local-instance/staff images/4966_2688_sq.jpg", :name "Max Gerlach", :title "Senior Mobile Developer", :dept "KH4 Tech"}]})
+    (reset! user (first (:to-review @deck))))
+
+  (add-watch deck :deck (fn [k r o n]
+                          (prn k o)
+                          (prn '=>)
+                          (prn k n)))
   )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -60,44 +67,51 @@
       (reset! atm $))))
 
 
+;;--- directly accessing the atom
+
 (defn all-users-to-review []
   (:to-review @deck))
 
 (defn all-users-reviewed []
   (:reviewed @deck))
 
-(defn all-users-in-deck []
-  (concat (all-users-to-review) (all-users-reviewed)))
+(defn set-reviewed [val]
+  (swap! deck assoc :reviewed val))
 
-(defn set-next-user-to-review []
-  (when-let [users (all-users-to-review)]
-    (reset! user  (first users))))
+(defn set-to-review [val]
+  (swap! deck assoc :to-review val))
 
 (defn remove-from-reviewed [userid]
-    (swap! deck update-in [:reviewed] #(remove (fn [m] (= userid (:id m))) %)))
+  (swap! deck update-in [:reviewed]
+         #(filterv (fn [m] (not= userid (:id m))) %)))
+
+(defn remove-from-to-review [userid]
+  (swap! deck update-in [:to-review]
+         #(filterv (fn [m] (not= userid (:id m))) %)))
 
 (defn add-to-reviewed [item]
   (swap! deck update-in [:reviewed] conj item))
 
-(defn remove-from-to-review [userid]
-    (swap! deck update-in [:to-review] #(remove (fn [m] (= userid (:id m))) %)))
-
 (defn add-to-to-review [item]
   (swap! deck update-in [:to-review] conj item))
 
-(defn get-item-from-to-review [userid]
-  (->> @deck
-      :to-review
-      (filter #(= (:id %) userid))
+;; ===
+
+(defn all-users-in-deck []
+  (concat (all-users-to-review) (all-users-reviewed)))
+
+(defn get-from-to-review [userid]
+  (->> (all-users-to-review)
+      (filterv #(= (:id %) userid))
       first))
 
 (defn mark-as-successfully-reviewed [userid]
-  (let [item (get-item-from-to-review userid)]
+  (let [item (get-from-to-review userid)]
     (remove-from-to-review userid)
     (add-to-reviewed item)))
       
 (defn mark-as-unsuccessfully-reviewed [userid]
-  (let [item (get-item-from-to-review userid)]
+  (let [item (get-from-to-review userid)]
     (remove-from-to-review userid)
     (add-to-to-review item)))
 
@@ -113,10 +127,13 @@
   (some #(= userid (:id %)) (all-users-in-deck)))
 
 (defn reset-reviewed []
-  (let [reviewed (-> @deck :reviewed)]
-    (swap! deck update-in [:to-review] conj reviewed)
-    (swap! deck assoc :reviewed [])))
+  (set-to-review (all-users-reviewed)) 
+  (set-reviewed []))
 
+
+(defn set-next-user-to-review []
+  (when-let [users (all-users-to-review)]
+    (reset! user (first users))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Views

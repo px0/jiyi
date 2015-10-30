@@ -60,6 +60,19 @@
       (reset! atm $))))
 
 
+(defn all-users-to-review []
+  (:to-review @deck))
+
+(defn all-users-reviewed []
+  (:reviewed @deck))
+
+(defn all-users-in-deck []
+  (concat (all-users-to-review) (all-users-reviewed)))
+
+(defn set-next-user-to-review []
+  (when-let [users (all-users-to-review)]
+    (reset! user  (first users))))
+
 (defn remove-from-reviewed [userid]
     (swap! deck update-in [:reviewed] #(remove (fn [m] (= userid (:id m))) %)))
 
@@ -95,16 +108,14 @@
       (json->userdetails $)
       (add-to-to-review $))))
 
-(defn all-users-in-deck []
-  (concat (:reviewed @deck) (:to-review @deck)))
 
 (defn user-in-deck? [userid]
   (some #(= userid (:id %)) (all-users-in-deck)))
 
 (defn reset-reviewed []
   (let [reviewed (-> @deck :reviewed)]
-    (swap! deck assoc :reviewed [])
-    (swap! deck update-in [:to-review] conj reviewed)))
+    (swap! deck update-in [:to-review] conj reviewed)
+    (swap! deck assoc :reviewed [])))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -149,12 +160,22 @@
       [:div.s6.left
        [:a
         {:href "#"
-         :class "waves-effect waves-light btn"}
+         :class "waves-effect waves-light btn"
+         :on-click (fn [e]
+                     (prn "Marking " name "with id" id "as successfully reviewed")
+                     (mark-as-successfully-reviewed id)
+                     (set-next-user-to-review))
+         }
         "I KNOW!"]]
       [:div.s6.right
        [:a
         {:href "#"
-         :class "waves-effect waves-light btn"}
+         :class "waves-effect waves-light btn"
+         :on-click (fn [e]
+                     (prn "Marking " name "with id" id "as UNsuccessfully reviewed")
+                     (mark-as-unsuccessfully-reviewed id)
+                     (set-next-user-to-review))
+         }
         "WHO?!?"]]]
      [:div.card-reveal
       [:span.card-title.grey-text.text-darken-4
@@ -165,6 +186,27 @@
        [:b title]
        [:p dept]]]]))
 
+(defn Review [useratm]
+  (when (and
+         (not (seq @useratm))
+         (seq (all-users-to-review)))
+    (set-next-user-to-review))
+  (cond
+    (seq @useratm) [Card useratm]
+    (seq (all-users-reviewed)) [:div
+                                 [:div.row>h2.center-align "There are no more Klicksters to review!"]
+                                 [:div.row.center-align>a {:href "#search"
+                                                           :class "waves-effect center waves-light btn valign"}
+                                  "Add more Klicksters"]
+                                 [:div.row.center-align>a {:href "#"
+                                                           :class "waves-effect waves-light btn"
+                                                           :on-click (fn [e] (reset-reviewed))}
+                                  "Start over"]]
+    :else [:div
+           [:div.row>h2.center-align "You have no Klicksters in your deck to review!"]
+           [:div.row.center-align>a {:href "#search"
+                                     :class "waves-effect center waves-light btn valign"}
+            "Add more Klicksters"]]))
 
 (defn SearchResults [results]
   [:div.row
@@ -199,7 +241,7 @@
       [:div
        [:div.row
         [:div.input-field.col.s12
-         [:input {:placeholder "Search term"
+         [:input {:placeholder "Search Klickster"
                   :type :text
                   :value @search-term
                   :on-change (fn [e]
@@ -213,21 +255,23 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Routes
 
-(save-to-atom user 5702)
+;; (save-to-atom user 5702)
 
+
+(defn review [] (Review user))
 (defn card [] (Card user))
-
 (defn search [] (Search))
 
 (defn current-page []
   [:div [(session/get :current-page)]])
+
 (secretary/set-config! :prefix "#")
 
 (secretary/defroute "/" []
-  (session/put! :current-page #'card))
+  (session/put! :current-page #'review))
 
-(secretary/defroute "/card" []
-  (session/put! :current-page #'card))
+(secretary/defroute "/review" []
+  (session/put! :current-page #'review))
 
 (secretary/defroute "/search" []
   (session/put! :current-page #'search))

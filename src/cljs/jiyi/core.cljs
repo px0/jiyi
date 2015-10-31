@@ -185,9 +185,8 @@
          :on-click (fn [e]
                      (prn "Marking " name "with id" id "as successfully reviewed")
                      (mark-as-successfully-reviewed id)
-                     (set-next-user-to-review))
-         }
-        "I KNOW!"]]
+                     (set-next-user-to-review))}
+        [:i.material-icons.left "thumb_up"] "I KNOW!!!"]]
       [:div.s6.right
        [:a
         {:href "#"
@@ -197,7 +196,7 @@
                      (mark-as-unsuccessfully-reviewed id)
                      (set-next-user-to-review))
          }
-        "WHO?!?"]]]
+        [:i.material-icons.left "thumb_down"] "WHO?!?"]]]
      [:div.card-reveal
       [:span.card-title.grey-text.text-darken-4
        [:i.material-icons.right
@@ -243,20 +242,20 @@
               (:Name result)
               
               (if (user-in-deck? (:UserID result))
-                [:a.btn-small.waves-effect.waves-light.red {:style {:float "right"}
+                [:a.btn-small.waves-effect.waves-light {:style {:float "right"}
                                                             :on-click (fn [e]
                                                                         (do
                                                                           (remove-from-deck (:UserID result))
                                                                           (set-next-user-to-review)
                                                                           (toast (str "Removed " (:Name result) " from your list!"))))}
-                 [:i.material-icons] "delete"]  
+                 [:i.material-icons "delete"]]  
                 
                 [:a.btn-small.waves-effect.waves-light {:style {:float "right"}
                                                         :on-click (fn [e]
                                                                     (do
                                                                       (add-to-deck (:UserID result))
                                                                       (toast (str "Added " (:Name result) " to your list!"))))}
-                 [:i.material-icons] "add"])])
+                 [:i.material-icons "add"]])])
            results
            )]]))
 
@@ -293,14 +292,14 @@
            [:li.collection-item {:key (:id result)}
             (:name result)
             
-            [:a.btn-small.waves-effect.waves-light.red {:style {:float "right"}
+            [:a.btn-small.waves-effect.waves-light {:style {:float "right"}
                                                           :on-click (fn [e]
                                                                       (do
                                                                         (remove-from-deck (:id result))
                                                                         (set-next-user-to-review)
                                                                         ;; (reset! plzupdate (new js/Date))
                                                                         (toast (str "Removed " (:name result) " from your list!"))))}
-               [:i.material-icons] "delete"]])
+             [:i.material-icons "delete"]]])
          (all-users-in-deck)) 
          ]])
 

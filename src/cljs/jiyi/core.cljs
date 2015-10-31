@@ -89,6 +89,10 @@
   (swap! deck update-in [:to-review]
          #(filterv (fn [m] (not= userid (:id m))) %)))
 
+(defn remove-from-deck [userid]
+  (remove-from-reviewed userid)
+  (remove-from-to-review userid))
+
 (defn add-to-reviewed [item]
   (swap! deck update-in [:reviewed] conj item))
 
@@ -115,7 +119,7 @@
     (remove-from-to-review userid)
     (add-to-to-review item)))
 
-(defn add-user-to-deck [userid]
+(defn add-to-deck [userid]
   (go
     (as-> (<! (<get-user userid)) $
       (first $) 
@@ -203,6 +207,13 @@
        [:b title]
        [:p dept]]]]))
 
+(defn Add-Klicksters [text]
+  [:div
+   [:div.row>h2.center-align text]
+                                 [:div.row.center-align>a {:href "#search"
+                                                           :class "waves-effect center waves-light btn valign"}
+                                  "Add more Klicksters"]])
+
 (defn Review [useratm]
   (when (and
          (not (seq @useratm))
@@ -211,10 +222,7 @@
   (cond
     (seq @useratm) [Card useratm]
     (seq (all-users-reviewed)) [:div
-                                 [:div.row>h2.center-align "There are no more Klicksters to review!"]
-                                 [:div.row.center-align>a {:href "#search"
-                                                           :class "waves-effect center waves-light btn valign"}
-                                  "Add more Klicksters"]
+                                 [Add-Klicksters "There are no more Klicksters to review!"]
                                  [:div.row.center-align>a {:href "#"
                                                            :class "waves-effect waves-light btn"
                                                            :on-click (fn [e] (reset-reviewed))}
@@ -226,21 +234,31 @@
             "Add more Klicksters"]]))
 
 (defn SearchResults [results]
-  [:div.row
-   [:ul.collection
-    (map (fn [result]
-           [:li.collection-item {:key (:UserID result)}
-            (:Name result)
-            [:a.btn-small.waves-effect.waves-light {:style {:float "right"}
-                                                    :on-click (fn [e]
-                                                                (if (user-in-deck? (:UserID result))
-                                                                  (toast (str (:Name result) " is already in your deck"))
-                                                                  (do
-                                                                    (add-user-to-deck (:UserID result))
-                                                                    (toast (str "Added " (:Name result) " to your list!")))))}
-             [:i.material-icons] "add"]])
-         results
-         )]])
+  (do
+    @deck
+    [:div.row
+     [:ul.collection
+      (map (fn [result]
+             [:li.collection-item {:key (:UserID result)}
+              (:Name result)
+              
+              (if (user-in-deck? (:UserID result))
+                [:a.btn-small.waves-effect.waves-light.red {:style {:float "right"}
+                                                            :on-click (fn [e]
+                                                                        (do
+                                                                          (remove-from-deck (:UserID result))
+                                                                          (set-next-user-to-review)
+                                                                          (toast (str "Removed " (:Name result) " from your list!"))))}
+                 [:i.material-icons] "delete"]  
+                
+                [:a.btn-small.waves-effect.waves-light {:style {:float "right"}
+                                                        :on-click (fn [e]
+                                                                    (do
+                                                                      (add-to-deck (:UserID result))
+                                                                      (toast (str "Added " (:Name result) " to your list!"))))}
+                 [:i.material-icons] "add"])])
+           results
+           )]]))
 
 (defn Search []
   (let [search-term (atom "")
@@ -268,6 +286,24 @@
                                    (put! search-channel newval))))}]]]
        [SearchResults @search-results ]])))
 
+(defn Deck-List []
+  [:div.row
+   [:ul.collection
+    (map (fn [result]
+           [:li.collection-item {:key (:id result)}
+            (:name result)
+            
+            [:a.btn-small.waves-effect.waves-light.red {:style {:float "right"}
+                                                          :on-click (fn [e]
+                                                                      (do
+                                                                        (remove-from-deck (:id result))
+                                                                        (set-next-user-to-review)
+                                                                        ;; (reset! plzupdate (new js/Date))
+                                                                        (toast (str "Removed " (:name result) " from your list!"))))}
+               [:i.material-icons] "delete"]])
+         (all-users-in-deck)) 
+         ]])
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Routes
@@ -278,6 +314,11 @@
 (defn review [] (Review user))
 (defn card [] (Card user))
 (defn search [] (Search))
+
+(defn decklist []
+  (if-not (empty? (all-users-in-deck))
+    [Deck-List]
+    [Add-Klicksters "You have no Klicksters in your list!"]))
 
 (defn current-page []
   [:div [(session/get :current-page)]])
@@ -293,6 +334,8 @@
 (secretary/defroute "/search" []
   (session/put! :current-page #'search))
 
+(secretary/defroute "/list" []
+  (session/put! :current-page #'decklist))
 
 ;; -------------------------
 ;; History

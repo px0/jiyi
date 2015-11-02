@@ -5,6 +5,7 @@
             [secretary.core :as secretary :include-macros true]
             [goog.events :as events]
             [goog.history.EventType :as EventType]
+            [alandipert.storage-atom :refer [local-storage]]
             [cljs-http.client :as http]
             [cljs.core.async :refer [<! chan put! >!] :as async]
             )
@@ -14,10 +15,10 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Stores
 
-(defonce deck (atom {:reviewed []
-                     :to-review []
-                     :being-reviewed nil}))
-
+(defonce deck (local-storage (atom {:reviewed []
+                                    :to-review []
+                                    :being-reviewed nil})
+                             :local-deck))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Actions

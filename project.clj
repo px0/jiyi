@@ -15,6 +15,7 @@
                  [compojure "1.4.0"]
                  [hiccup "1.0.5"]
                  [environ "1.0.1"]
+                 [alandipert/storage-atom "1.2.4"]
                  [org.clojure/clojurescript "1.7.122" :scope "provided"]
                  [cljs-http "0.1.37"]
                  [secretary "1.2.3"]]

@@ -3,6 +3,7 @@
 - cider-connect
   - localhost
   - 7002
+- (use 'figwheel-sidecar.repl-api)
 - (cljs-repl)
 - C-c C-k
 

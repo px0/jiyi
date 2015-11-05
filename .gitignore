@@ -4,3 +4,8 @@ target
 **/.DS_Store
 .lein-*
 *.log
+resources/public/js/out
+resources/public/js/out
+-r resources/public/js/out
+.cljs_rhino_repl/
+.cljs_rhino_repl

@@ -26,6 +26,7 @@
      (include-js "js/app.js")]]))
 
 (defroutes routes
+   (GET "/" [] (slurp "resources/public/index.html"))
   (resources "/")
   (not-found "Not Found"))
 

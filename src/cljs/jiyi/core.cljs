@@ -47,6 +47,7 @@
    :photo (str "https://genome.klick.com" (:PhotoPath json))
    :name (:Name json)
    :title (:Title json)
+   :genomedetails (str "https://genome.klick.com/user/index.html#/" (:UserID json))
    :dept (:BusinessUnitName json)})
 
 
@@ -159,38 +160,39 @@
 
 (defn Card []
   (let [{:keys [id photo name title dept]} (get-being-reviewed)]
-    [:div.card 
+    [:div.card {:style {:max-width "500px"}}
      [:div.card-image.waves-effect.waves-block.waves-light
       [:img.activator
        {:src photo}]]
      [:div.card-content.row {:style {:float "bottom"}}
-      [:div.s6.left
-       [:a
-        {:href "#"
-         :class "waves-effect waves-light btn"
-         :on-click (fn [e]
-                     (prn "Marking " name "with id" id "as successfully reviewed")
-                     (mark-as-successfully-reviewed id)
-                     (set-next-to-review))}
-        [:i.material-icons.left "thumb_up"] "I KNOW!!!"]]
-      [:div.s6.right
-       [:a
-        {:href "#"
-         :class "waves-effect waves-light btn"
-         :on-click (fn [e]
-                     (prn "Marking " name "with id" id "as UNsuccessfully reviewed")
-                     (mark-as-unsuccessfully-reviewed id)
-                     (set-next-to-review))
-         }
-        [:i.material-icons.left "thumb_down"] "WHO?!?"]]]
+       [:div.s6.left
+        [:a
+         {:href "#"
+          :class "waves-effect waves-light btn"
+          :on-click (fn [e]
+                      (prn "Marking " name "with id" id "as successfully reviewed")
+                      (mark-as-successfully-reviewed id)
+                      (set-next-to-review))}
+         [:i.material-icons.left "thumb_up"] "I KNOW!!!"]]
+       [:div.s6.right
+        [:a
+         {:href "#"
+          :class "waves-effect waves-light btn"
+          :on-click (fn [e]
+                      (prn "Marking " name "with id" id "as UNsuccessfully reviewed")
+                      (mark-as-unsuccessfully-reviewed id)
+                      (set-next-to-review))}
+         [:i.material-icons.left "thumb_down"] "No idea :("]]]
      [:div.card-reveal
       [:span.card-title.grey-text.text-darken-4
        [:i.material-icons.right
         "close"]]
-      [:p
-       [:h1 name]
-       [:b title]
-       [:p dept]]]]))
+      [:span.card-title.grey-text.text-darken-4
+       [:p.card-title
+        [:br]
+        [:h1 name]
+        [:h5 title]
+        [:h5 dept]]]]]))
 
 (defn Add-Klicksters [text]
   [:div
@@ -260,7 +262,7 @@
     (fn []
       [:div
        [:div.row
-        [:div.input-field.col.s12
+      [:div.input-field.col.s12
          [:input {:placeholder "Search Klickster"
                   :type :text
                   :value @search-term
@@ -275,19 +277,21 @@
   [:div.row
    [:ul.collection
     (doall (map (fn [result]
-                  [:li.collection-item {:key (:id result)}
-                   (:name result)
+                  [:li.collection-item.avatar {:key (:id result)
+                                               :style {:min-height 55}}
+                   [:img.circle {:src (:photo result)}]
+                   ;; [:a {:href (:genomedetails result)}]
+                   [:div.title [:b (:name result)]]
+                   (:title result)
                    
                    [:a.btn-small.waves-effect.waves-light {:style {:float "right"}
                                                            :on-click (fn [e]
                                                                        (do
                                                                          (remove-from-deck (:id result))
                                                                          (set-next-to-review)
-                                                                         ;; (reset! plzupdate (new js/Date))
                                                                          (toast (str "Removed " (:name result) " from your list!"))))}
                     [:i.material-icons "delete"]]])
-                (all-in-deck))) 
-    ]])
+                (all-in-deck)))]])
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

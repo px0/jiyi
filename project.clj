@@ -47,7 +47,6 @@
                                         :output-dir    "resources/public/js/out"
                                         :asset-path   "js/out"
                                         :optimizations :none
-                                        :source-map true
                                         :pretty-print  true}}}}
 
   :profiles {:dev {:repl-options {:init-ns jiyi.repl}
@@ -96,4 +95,11 @@
                                             {:source-paths ["env/prod/cljs"]
                                              :compiler
                                              {:optimizations :advanced
-                                              :pretty-print false}}}}}})
+                                              :pretty-print false}}}}}
+             :prod {
+                    :cljsbuild {:builds {:app
+                                            {:source-paths ["env/prod/cljs"]
+                                             :compiler
+                                             {:optimizations :advanced
+                                              :pretty-print false}}}}}}
+  )

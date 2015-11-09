@@ -7,6 +7,7 @@
             [goog.history.EventType :as EventType]
             [alandipert.storage-atom :refer [local-storage]]
             [cljs-http.client :as http]
+            [timothypratley.reanimated.core :as anim]
             [cljs.core.async :refer [<! chan put! >!] :as async]
             )
   (:import goog.History))
@@ -142,7 +143,7 @@
                   (<! in)
                   last-val)
             timer (async/timeout ms)]
-        (alt!
+         (alt!
           in ([v] (if v
                     (recur v)
                     (async/close! out)))
@@ -157,6 +158,72 @@
   ([msg length]
    (.toast js/Materialize msg length)))
 
+(defn review-buttons [id]
+  [:div.card-content.row {:style {:float "bottom"}}
+   [:div.s6.left
+    [:a
+     {:href "#"
+      :class "waves-effect waves-light btn"
+      :on-click (fn [e]
+                  (prn "Marking " name "with id" id "as successfully reviewed")
+                  (comment
+                    (mark-as-successfully-reviewed id)
+                    (set-next-to-review)))}
+     [:i.material-icons.left "thumb_up"] "I KNOW!!!"]]
+   [:div.s6.right
+    [:a
+     {:href "#"
+      :class "waves-effect waves-light btn"
+      :on-click (fn [e]
+                  (prn "Marking " name "with id" id "as UNsuccessfully reviewed")
+                  (comment
+                    (mark-as-unsuccessfully-reviewed id)
+                    (set-next-to-review)))}
+     [:i.material-icons.left "thumb_down"] "No idea :("]]])
+
+(defn RCard [user]
+  (let [revealed? (atom false)
+        reveal-div-pos (anim/interpolate-if revealed? -300 60)]
+    (fn []
+      (let [{:keys [id photo name title dept]} user]
+        [:div {:class "z-depth-3"
+               :style {:max-width "500px"
+                       :position "relative"
+                       }}
+         [:div.card-image.waves-effect.waves-block.waves-light
+          [:img {:src photo
+                 :style {:width "100%"}}]
+          
+          [:div  {:style {:position :absolute
+                          :bottom @reveal-div-pos 
+                          :background :white
+                          :width "100%"
+                          :height 200
+                          :opacity 0.6}}]
+          
+          [:div  {:style {:position :absolute
+                          :bottom @reveal-div-pos 
+                          :width "100%"
+                          :height 200}}
+           [:p
+            [:h1 name]
+            [:h5 title]
+            [:h5 dept]]]
+          
+          [:div {:style {:position :absolute
+                         :bottom 0
+                         :background :white
+                         :width "100%"
+                         :height 60
+                         :display :flex
+                         :justify-content :center
+                         :align-items :center
+                         }}
+           [:a
+            {:href "#"
+             :class "waves-effect waves-light btn"
+             :on-click (anim/toggle-handler revealed?) }
+            [:i.material-icons.left "visibility"] "Reveal"]]]]))))
 
 (defn Card []
   (let [{:keys [id photo name title dept]} (get-being-reviewed)]
@@ -300,6 +367,7 @@
 
 (defn review [] (Review))
 (defn card [] (Card))
+(defn rcard [] (RCard {:id 5702, :photo "https://genome.klick.com/local-instance/staff images/5702_3525_sq.jpg", :name "Ashley Ho", :title "Medical Editor", :dept "Creative"}))
 (defn search [] (Search))
 
 (defn decklist []
@@ -320,6 +388,9 @@
 
 (secretary/defroute "/search" []
   (session/put! :current-page #'search))
+
+(secretary/defroute "/rcard" []
+  (session/put! :current-page #'rcard))
 
 (secretary/defroute "/list" []
   (session/put! :current-page #'decklist))

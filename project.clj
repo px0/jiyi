@@ -18,6 +18,7 @@
                  [alandipert/storage-atom "1.2.4"]
                  [org.clojure/clojurescript "1.7.122" :scope "provided"]
                  [cljs-http "0.1.37"]
+                 [timothypratley/reanimated "0.1.1"]
                  [secretary "1.2.3"]]
 
   :plugins [[lein-environ "1.0.1"]
@@ -96,7 +97,7 @@
                                              :compiler
                                              {:optimizations :advanced
                                               :pretty-print false}}}}}
-             :prod {
+             :prod {:hooks []
                     :cljsbuild {:builds {:app
                                             {:source-paths ["env/prod/cljs"]
                                              :compiler

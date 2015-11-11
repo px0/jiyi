@@ -1,45 +1,34 @@
 (ns jiyi.core
-   (:require-macros [cljs.core.async.macros :refer [go go-loop alt!]])
-    (:require [reagent.core :as reagent :refer [atom]]
-              [reagent.session :as session]
-              [secretary.core :as secretary :include-macros true]
-              [goog.events :as events]
-              [goog.history.EventType :as EventType]
-              [cljs-http.client :as http]
-              [cljs.core.async :refer [<! chan put! >!] :as async]
-              )
-    (:import goog.History))
+  (:require-macros [cljs.core.async.macros :refer [go go-loop alt!]])
+  (:require [reagent.core :as reagent :refer [atom]]
+            [reagent.session :as session]
+            [secretary.core :as secretary :include-macros true]
+            [goog.events :as events]
+            [goog.history.EventType :as EventType]
+            [alandipert.storage-atom :refer [local-storage]]
+            [cljs-http.client :as http]
+            [timothypratley.reanimated.core :as anim]
+            [cljs.core.async :refer [<! chan put! >!] :as async]
+            )
+  (:import goog.History))
 
-
-(enable-console-print!)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Stores
 
-(defonce user (atom {}))
-(defonce deck (atom {:reviewed []
-                     :to-review []
-                     :being-reviewed nil}))
-(comment
-  (do
-    (reset! deck {:reviewed [{:id 5702, :photo "https://genome.klick.com/local-instance/staff images/5702_3525_sq.jpg", :name "Ashley Ho", :title "Medical Editor", :dept "Creative"}], :to-review [{:id 4967, :photo "https://genome.klick.com/local-instance/staff images/4967_2553.jpg", :name "Alfred Oo", :title "Application Developer", :dept "KH4 Tech"} {:id 4966, :photo "https://genome.klick.com/local-instance/staff images/4966_2688_sq.jpg", :name "Max Gerlach", :title "Senior Mobile Developer", :dept "KH4 Tech"}]})
-    (reset! user (first (:to-review @deck))))
-
-  (add-watch deck :deck (fn [k r o n]
-                          (prn k o)
-                          (prn '=>)
-                          (prn k n)))
-  )
+(defonce deck (local-storage (atom {:reviewed []
+                                    :to-review []
+                                    :being-reviewed nil})
+                             :local-deck))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Actions
 
 
-(defn- extract-content [] (map #(if (:body %)
-                                  (-> % :body :Entries)
-                                  %)))
+;; Network
+(defn- extract-content [] (map #(-> % :body :Entries)))
 
-(defn <get-user 
+(defn <get-klickster 
   [userid]
   (http/jsonp "https://genome.klick.com:443/api/User.json"
               {:query-params {"UserID" userid}
@@ -54,13 +43,16 @@
                               :Keyword keyword}
                :channel (chan 1 (extract-content))}))
 
-
 (defn json->userdetails [json]
   {:id (:UserID json)
    :photo (str "https://genome.klick.com" (:PhotoPath json))
    :name (:Name json)
    :title (:Title json)
+   :genomedetails (str "https://genome.klick.com/user/index.html#/" (:UserID json))
    :dept (:BusinessUnitName json)})
+
+
+;; State manipulation
 
 (defn set-to-being-reviewed [user]
   (swap! deck assoc :being-reviewed user))
@@ -68,13 +60,10 @@
 (defn get-being-reviewed []
   (:being-reviewed @deck))
 
-
-;; accessing the atom
-
-(defn all-users-to-review []
+(defn all-to-review []
   (:to-review @deck))
 
-(defn all-users-reviewed []
+(defn all-reviewed []
   (:reviewed @deck))
 
 (defn set-reviewed [val]
@@ -91,61 +80,59 @@
   (swap! deck update-in [:to-review]
          #(filterv (fn [m] (not= userid (:id m))) %)))
 
-(defn remove-from-deck [userid]
-  (remove-from-reviewed userid)
-  (remove-from-to-review userid))
-
 (defn add-to-reviewed [item]
   (swap! deck update-in [:reviewed] conj item))
 
 (defn add-to-to-review [item]
   (swap! deck update-in [:to-review] conj item))
 
-;; ===
+;; ---
 
-(defn all-users-in-deck []
-  (concat (all-users-to-review) (all-users-reviewed)))
+(defn remove-from-deck [userid]
+  (remove-from-reviewed userid)
+  (remove-from-to-review userid))
+
+(defn all-in-deck []
+  (concat (all-to-review) (all-reviewed)))
 
 (defn get-from-to-review [userid]
-  (->> (all-users-to-review)
-      (filterv #(= (:id %) userid))
-      first))
+  (->> (all-to-review)
+       (filterv #(= (:id %) userid))
+       first))
 
 (defn mark-as-successfully-reviewed [userid]
   (let [item (get-from-to-review userid)]
     (remove-from-to-review userid)
     (add-to-reviewed item)))
-      
+
 (defn mark-as-unsuccessfully-reviewed [userid]
   (let [item (get-from-to-review userid)]
     (remove-from-to-review userid)
     (add-to-to-review item)))
 
-(defn add-to-deck [userid]
-  (go
-    (as-> (<! (<get-user userid)) $
-      (first $) 
-      (json->userdetails $)
-      (add-to-to-review $))))
-
-
-(defn user-in-deck? [userid]
-  (some #(= userid (:id %)) (all-users-in-deck)))
+(defn in-deck? [userid]
+  (some #(= userid (:id %)) (all-in-deck)))
 
 (defn reset-reviewed []
-  (set-to-review (all-users-reviewed)) 
+  (set-to-review (all-reviewed)) 
   (set-reviewed []))
 
+(defn set-next-to-review []
+  (when-let [users (all-to-review)]
+    (set-to-being-reviewed (first users))))
 
-(defn set-next-user-to-review []
-  (when-let [users (all-users-to-review)]
-    (reset! user (first users))))
+(defn add-to-deck [userid]
+  (go
+    (-> (<! (<get-klickster userid)) 
+      (first ) 
+      (json->userdetails )
+      (add-to-to-review ))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Views
+;; Views / Components
 
-; Source: https://gist.github.com/Deraen/946ac9e6c6211c83f1e9
 (defn debounce [in ms]
+;; Source: https://gist.github.com/Deraen/946ac9e6c6211c83f1e9
   "Creates a channel which will change put a new value to the output channel
    after timeout has passed. Each value change resets the timeout. If value
    changes more frequently only the latest value is put out.
@@ -156,7 +143,7 @@
                   (<! in)
                   last-val)
             timer (async/timeout ms)]
-        (alt!
+         (alt!
           in ([v] (if v
                     (recur v)
                     (async/close! out)))
@@ -167,67 +154,143 @@
 
 (defn toast
   ([msg]
-   (toast msg 1000)
-   )
+   (toast msg 1000))
   ([msg length]
    (.toast js/Materialize msg length)))
 
+(defn review-buttons [id]
+  [:div.row {:style {:display :flex
+                     :justify-content :space-between
+                     :flex-direction :row
+                     :align-items :center
+                     :margin-bottom 0
+                     :padding 15}}
+   [:div.spacer] ;somehow needed for the stupid layout!
+   [:div [:a
+          {:href "#"
+           :class "waves-effect waves-light btn"
+           :on-click (fn [e]
+                       (prn "Marking " name "with id" id "as successfully reviewed")
+                       (mark-as-successfully-reviewed id)
+                       (set-next-to-review))}
+          [:i.material-icons.left "thumb_up"] "I KNOW!!!"]]
 
-(defn Card [user]
+   [:div [:a
+          {:href "#"
+           :class "waves-effect waves-light btn"
+           :on-click (fn [e]
+                       (prn "Marking " name "with id" id "as UNsuccessfully reviewed")
+                       (mark-as-unsuccessfully-reviewed id)
+                       (set-next-to-review))}
+          [:i.material-icons.left "thumb_down"] "No idea :("]]])
+
+(defn RCard [user]
+  (let [revealed? (atom false)
+        reveal-div-pos (anim/interpolate-if revealed? -300 60)]
+    (fn []
+      (let [{:keys [id photo name title dept]} user]
+        (prn revealed?)
+        [:div {:class "z-depth-2"
+               :style {:max-width "500px"
+                       :position "relative"
+                       :border-radius "2px"
+                       :overflow :hidden
+                       }}
+         [:div.card-image.waves-effect.waves-block.waves-light
+          [:img {:src photo
+                 :style {:width "100%"}}]
+
+          (when @revealed?
+            [:div.row {:style {:margin-bottom 0}}
+             [:div  {:style {:position :absolute
+                             :bottom @reveal-div-pos 
+                             :background :white
+                             :width 520
+                             :height 220
+                             :opacity 0.6}}]
+             
+             [:div  {:style {:position :absolute
+                             :bottom @reveal-div-pos 
+                             :width 520
+                             :height 220}}
+              [:p
+               [:h1 name]
+               [:h5 title]
+               [:h5 dept]]]])
+
+          [:div {:style {:z-index 2}}
+           (if-not @revealed?
+             [:div {:style {:bottom 0
+                            :background :white
+                            :width 500
+                            :display :flex
+                            :justify-content :center
+                            :align-items :center
+                            :padding 15}}
+              [:a {:class "waves-effect waves-light btn"
+                   :on-click (anim/toggle-handler revealed?) }
+               [:i.material-icons.left "visibility"] "Reveal"]]
+
+             ;; if revealed
+             [review-buttons id])]]]))))
+
+(defn Card []
   (let [{:keys [id photo name title dept]} (get-being-reviewed)]
-    [:div.card 
+    [:div.card {:style {:max-width "500px"}}
      [:div.card-image.waves-effect.waves-block.waves-light
       [:img.activator
        {:src photo}]]
      [:div.card-content.row {:style {:float "bottom"}}
-      [:div.s6.left
-       [:a
-        {:href "#"
-         :class "waves-effect waves-light btn"
-         :on-click (fn [e]
-                     (prn "Marking " name "with id" id "as successfully reviewed")
-                     (mark-as-successfully-reviewed id)
-                     (set-next-user-to-review))}
-        [:i.material-icons.left "thumb_up"] "I KNOW!!!"]]
-      [:div.s6.right
-       [:a
-        {:href "#"
-         :class "waves-effect waves-light btn"
-         :on-click (fn [e]
-                     (prn "Marking " name "with id" id "as UNsuccessfully reviewed")
-                     (mark-as-unsuccessfully-reviewed id)
-                     (set-next-user-to-review))
-         }
-        [:i.material-icons.left "thumb_down"] "WHO?!?"]]]
+       [:div.s6.left
+        [:a
+         {:href "#"
+          :class "waves-effect waves-light btn"
+          :on-click (fn [e]
+                      (prn "Marking " name "with id" id "as successfully reviewed")
+                      (mark-as-successfully-reviewed id)
+                      (set-next-to-review))}
+         [:i.material-icons.left "thumb_up"] "I KNOW!!!"]]
+       [:div.s6.right
+        [:a
+         {:href "#"
+          :class "waves-effect waves-light btn"
+          :on-click (fn [e]
+                      (prn "Marking " name "with id" id "as UNsuccessfully reviewed")
+                      (mark-as-unsuccessfully-reviewed id)
+                      (set-next-to-review))}
+         [:i.material-icons.left "thumb_down"] "No idea :("]]]
      [:div.card-reveal
       [:span.card-title.grey-text.text-darken-4
        [:i.material-icons.right
         "close"]]
-      [:p
-       [:h1 name]
-       [:b title]
-       [:p dept]]]]))
+      [:span.card-title.grey-text.text-darken-4
+       [:p.card-title
+        [:br]
+        [:h1 name]
+        [:h5 title]
+        [:h5 dept]]]]]))
 
 (defn Add-Klicksters [text]
   [:div
    [:div.row>h2.center-align text]
-                                 [:div.row.center-align>a {:href "#search"
-                                                           :class "waves-effect center waves-light btn valign"}
-                                  "Add more Klicksters"]])
+   [:div.row.center-align>a {:href "#search"
+                             :class "waves-effect center waves-light btn valign"}
+    "Add more Klicksters"]])
 
-(defn Review [useratm]
+(defn Review []
   (when (and
-         (not (seq @useratm))
-         (seq (all-users-to-review)))
-    (set-next-user-to-review))
+         (not (get-being-reviewed))
+         (seq (all-to-review)))
+    (set-next-to-review))
+  
   (cond
-    (seq @useratm) [Card useratm]
-    (seq (all-users-reviewed)) [:div
-                                 [Add-Klicksters "There are no more Klicksters to review!"]
-                                 [:div.row.center-align>a {:href "#"
-                                                           :class "waves-effect waves-light btn"
-                                                           :on-click (fn [e] (reset-reviewed))}
-                                  "Start over"]]
+    (seq (get-being-reviewed)) [RCard (get-being-reviewed)]
+    (seq (all-reviewed)) [:div
+                          [Add-Klicksters "There are no more Klicksters to review!"]
+                          [:div.row.center-align>a {:href "#"
+                                                    :class "waves-effect waves-light btn"
+                                                    :on-click (fn [e] (reset-reviewed))}
+                           "Start over"]]
     :else [:div
            [:div.row>h2.center-align "You have no Klicksters in your deck to review!"]
            [:div.row.center-align>a {:href "#search"
@@ -235,50 +298,47 @@
             "Add more Klicksters"]]))
 
 (defn SearchResults [results]
-  (do
-    @deck
-    [:div.row
-     [:ul.collection
-      (map (fn [result]
-             [:li.collection-item {:key (:UserID result)}
-              (:Name result)
-              
-              (if (user-in-deck? (:UserID result))
-                [:a.btn-small.waves-effect.waves-light {:style {:float "right"}
-                                                            :on-click (fn [e]
-                                                                        (do
-                                                                          (remove-from-deck (:UserID result))
-                                                                          (set-next-user-to-review)
-                                                                          (toast (str "Removed " (:Name result) " from your list!"))))}
-                 [:i.material-icons "delete"]]  
-                
-                [:a.btn-small.waves-effect.waves-light {:style {:float "right"}
-                                                        :on-click (fn [e]
-                                                                    (do
-                                                                      (add-to-deck (:UserID result))
-                                                                      (toast (str "Added " (:Name result) " to your list!"))))}
-                 [:i.material-icons "add"]])])
-           results
-           )]]))
+  [:div.row
+   [:ul.collection
+    (doall (map (fn [result]
+                  [:li.collection-item {:key (:UserID result)}
+                   (:Name result)
+                   
+                   (if (in-deck? (:UserID result))
+                     [:a.btn-small.waves-effect.waves-light {:style {:float "right"}
+                                                             :on-click (fn [e]
+                                                                         (do
+                                                                           (remove-from-deck (:UserID result))
+                                                                           (set-next-to-review)
+                                                                           (toast (str "Removed " (:Name result) " from your list!"))))}
+                      [:i.material-icons "delete"]]  
+                     
+                     [:a.btn-small.waves-effect.waves-light {:style {:float "right"}
+                                                             :on-click (fn [e]
+                                                                         (do
+                                                                           (add-to-deck (:UserID result))
+                                                                           (toast (str "Added " (:Name result) " to your list!"))))}
+                      [:i.material-icons "add"]])])
+                results
+                ))]])
 
 (defn Search []
   (let [search-term (atom "")
         search-results (atom [])
         search-channel (chan)
         <search-user-delayed (debounce search-channel 300)]
-    (add-watch search-results :search-results
-               (fn  [k r o n]
-                 (prn k n)))
+    #_(add-watch search-results :search-results
+                 (fn  [k r o n]
+                   (prn k n)))
     (go-loop []
       (let [keyword (<! <search-user-delayed)
             result (<! (<search-user keyword))]
-        (prn "search-user result:" result)
         (reset! search-results result)
         (recur)))
     (fn []
       [:div
        [:div.row
-        [:div.input-field.col.s12
+      [:div.input-field.col.s12
          [:input {:placeholder "Search Klickster"
                   :type :text
                   :value @search-term
@@ -287,37 +347,40 @@
                                  (reset! search-term newval)
                                  (when-not (empty? newval) 
                                    (put! search-channel newval))))}]]]
-       [SearchResults @search-results ]])))
+       (SearchResults @search-results)])))
 
 (defn Deck-List []
   [:div.row
    [:ul.collection
-    (map (fn [result]
-           [:li.collection-item {:key (:id result)}
-            (:name result)
-            
-            [:a.btn-small.waves-effect.waves-light {:style {:float "right"}
-                                                          :on-click (fn [e]
-                                                                      (do
-                                                                        (remove-from-deck (:id result))
-                                                                        (set-next-user-to-review)
-                                                                        ;; (reset! plzupdate (new js/Date))
-                                                                        (toast (str "Removed " (:name result) " from your list!"))))}
-             [:i.material-icons "delete"]]])
-         (all-users-in-deck)) 
-         ]])
+    (doall (map (fn [result]
+                  [:li.collection-item.avatar {:key (:id result)
+                                               :style {:min-height 55}}
+                   [:img.circle {:src (:photo result)}]
+                   ;; [:a {:href (:genomedetails result)}]
+                   [:div.title [:b (:name result)]]
+                   (:title result)
+                   
+                   [:a.btn-small.waves-effect.waves-light {:style {:float "right"}
+                                                           :on-click (fn [e]
+                                                                       (do
+                                                                         (remove-from-deck (:id result))
+                                                                         (set-next-to-review)
+                                                                         (toast (str "Removed " (:name result) " from your list!"))))}
+                    [:i.material-icons "delete"]]])
+                (all-in-deck)))]])
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Routes
 
 
-(defn review [] (Review user))
-(defn card [] (Card user))
+(defn review [] (Review))
+(defn card [] (Card))
+(defn rcard [] (RCard {:id 5702, :photo "https://genome.klick.com/local-instance/staff images/5702_3525_sq.jpg", :name "Ashley Ho", :title "Medical Editor", :dept "Creative"}))
 (defn search [] (Search))
 
 (defn decklist []
-  (if-not (empty? (all-users-in-deck))
+  (if-not (empty? (all-in-deck))
     [Deck-List]
     [Add-Klicksters "You have no Klicksters in your list!"]))
 
@@ -334,6 +397,9 @@
 
 (secretary/defroute "/search" []
   (session/put! :current-page #'search))
+
+(secretary/defroute "/rcard" []
+  (session/put! :current-page #'rcard))
 
 (secretary/defroute "/list" []
   (session/put! :current-page #'decklist))
@@ -359,16 +425,16 @@
   (mount-root))
 
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Just for testing
 
+(comment
+  (do
+    (reset! deck {:reviewed [{:id 5702, :photo "https://genome.klick.com/local-instance/staff images/5702_3525_sq.jpg", :name "Ashley Ho", :title "Medical Editor", :dept "Creative"}], :to-review [{:id 4967, :photo "https://genome.klick.com/local-instance/staff images/4967_2553.jpg", :name "Alfred Oo", :title "Application Developer", :dept "KH4 Tech"} {:id 4966, :photo "https://genome.klick.com/local-instance/staff images/4966_2688_sq.jpg", :name "Max Gerlach", :title "Senior Mobile Developer", :dept "KH4 Tech"}]})
+    (set-to-being-reviewed (first (all-to-review))))
 
-
-(def test-user {:IsObjectivesAdmin false, :LaborCategoryID "TECHNCAL", :FirstName "Max", :LaborRoleID "APPLDEVL", :OversightPercent 25, :WorkTeamID "101", :BusinessUnitName "KH4 Tech", :IsCandidateAdmin false, :CanCommunicateClient false, :UserSystemID 80, :Email "mgerlach@klick.com", :CreatedDate "/Date(1370232000000-0000)/", :BillingTargetHoursPerYear 1650, :Title "Senior Mobile Developer", :IsClient false, :IsScheduleConfirmationRulesEnforced true, :LastName "Gerlach", :IsScheduleAdmin false, :UserName "mgerlach", :Extension "2381", :TimeZoneName "America/Toronto", :IsNotAPerson false, :UserID 4966, :KeyscanUpdated "/Date(1445623000000-0000)/", :HasDirectReports false, :IsAdmin false, :BusinessUnitID 24, :CountryID "CA", :CompanyBusinessUnitID 1, :TimeZoneID 90, :PhotoPath "/local-instance/staff images/4966_2688_sq.jpg", :Name "Max Gerlach", :Roles [{:RoleID "DWFullAccess", :IsBusinessUnitScope true} {:RoleID "ws", :IsBusinessUnitScope false}], :CompanyBusinessUnitName "Klick Health", :IsWeeklyReviewAdmin false, :Enabled true, :TagName "Max_Gerlach", :Supervisors [3642 3990 4363 3446 3438 3424 3449], :Status {:CanSMS false, :IsOnGenome true, :CanGTalk false}})
-
-
-
-
-
-
-
-
-
+  (add-watch deck :deck (fn [k r o n]
+                          (prn k o)
+                          (prn '=>)
+                          (prn k n)))
+  )

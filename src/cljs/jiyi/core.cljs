@@ -158,108 +158,82 @@
   ([msg length]
    (.toast js/Materialize msg length)))
 
-(defn review-buttons [id]
-  [:div.card-content.row {:style {:float "bottom"}}
-   [:div.s6.left
-    [:a
-     {:href "#"
-      :class "waves-effect waves-light btn"
-      :on-click (fn [e]
-                  (prn "Marking " name "with id" id "as successfully reviewed")
-                  (comment
-                    (mark-as-successfully-reviewed id)
-                    (set-next-to-review)))}
-     [:i.material-icons.left "thumb_up"] "I KNOW!!!"]]
-   [:div.s6.right
-    [:a
-     {:href "#"
-      :class "waves-effect waves-light btn"
-      :on-click (fn [e]
-                  (prn "Marking " name "with id" id "as UNsuccessfully reviewed")
-                  (comment
-                    (mark-as-unsuccessfully-reviewed id)
-                    (set-next-to-review)))}
-     [:i.material-icons.left "thumb_down"] "No idea :("]]])
+
 
 (defn RCard [user]
   (let [revealed? (atom false)
         reveal-div-pos (anim/interpolate-if revealed? -300 60)]
-    (fn []
+    (fn [user]
       (let [{:keys [id photo name title dept]} user]
-        [:div {:class "z-depth-3"
+        [:div {:class "z-depth-2"
                :style {:max-width "500px"
                        :position "relative"
+                       :border-radius "2px"
+                       :overflow :hidden
                        }}
          [:div.card-image.waves-effect.waves-block.waves-light
           [:img {:src photo
                  :style {:width "100%"}}]
-          
-          [:div  {:style {:position :absolute
-                          :bottom @reveal-div-pos 
-                          :background :white
-                          :width "100%"
-                          :height 200
-                          :opacity 0.6}}]
-          
-          [:div  {:style {:position :absolute
-                          :bottom @reveal-div-pos 
-                          :width "100%"
-                          :height 200}}
-           [:p
-            [:h1 name]
-            [:h5 title]
-            [:h5 dept]]]
-          
-          [:div {:style {:position :absolute
-                         :bottom 0
-                         :background :white
-                         :width "100%"
-                         :height 60
-                         :display :flex
-                         :justify-content :center
-                         :align-items :center
-                         }}
-           [:a
-            {:href "#"
-             :class "waves-effect waves-light btn"
-             :on-click (anim/toggle-handler revealed?) }
-            [:i.material-icons.left "visibility"] "Reveal"]]]]))))
 
-(defn Card []
-  (let [{:keys [id photo name title dept]} (get-being-reviewed)]
-    [:div.card {:style {:max-width "500px"}}
-     [:div.card-image.waves-effect.waves-block.waves-light
-      [:img.activator
-       {:src photo}]]
-     [:div.card-content.row {:style {:float "bottom"}}
-       [:div.s6.left
-        [:a
-         {:href "#"
-          :class "waves-effect waves-light btn"
-          :on-click (fn [e]
-                      (prn "Marking " name "with id" id "as successfully reviewed")
-                      (mark-as-successfully-reviewed id)
-                      (set-next-to-review))}
-         [:i.material-icons.left "thumb_up"] "I KNOW!!!"]]
-       [:div.s6.right
-        [:a
-         {:href "#"
-          :class "waves-effect waves-light btn"
-          :on-click (fn [e]
-                      (prn "Marking " name "with id" id "as UNsuccessfully reviewed")
-                      (mark-as-unsuccessfully-reviewed id)
-                      (set-next-to-review))}
-         [:i.material-icons.left "thumb_down"] "No idea :("]]]
-     [:div.card-reveal
-      [:span.card-title.grey-text.text-darken-4
-       [:i.material-icons.right
-        "close"]]
-      [:span.card-title.grey-text.text-darken-4
-       [:p.card-title
-        [:br]
-        [:h1 name]
-        [:h5 title]
-        [:h5 dept]]]]]))
+          (when @revealed?
+            [:div.row {:style {:margin-bottom 0}}
+             [:div  {:style {:position :absolute
+                             :bottom @reveal-div-pos 
+                             :background :white
+                             :width 520
+                             :height 220
+                             :opacity 0.6}}]
+             
+             [:div  {:style {:position :absolute
+                             :bottom @reveal-div-pos 
+                             :width 520
+                             :height 220}}
+              [:p
+               [:h1 name]
+               [:h5 title]
+               [:h5 dept]]]])
+
+          [:div {:style {:z-index 2}}
+           (if-not @revealed?
+             [:div {:style {:bottom 0
+                            :background :white
+                            :width 500
+                            :display :flex
+                            :justify-content :center
+                            :align-items :center
+                            :padding 15}}
+              [:a {:class "waves-effect waves-light btn"
+                   :on-click (anim/toggle-handler revealed?) }
+               [:i.material-icons.left "visibility"] "Reveal"]]
+
+             ;; if revealed
+             [:div.row {:style {:display :flex
+                                :justify-content :space-between
+                                :flex-direction :row
+                                :align-items :center
+                                :margin-bottom 0
+                                :padding 15}}
+              [:div.spacer] ;somehow needed for the stupid layout!
+              [:div [:a
+                     {:href "#"
+                      :class "waves-effect waves-light btn"
+                      :on-click (fn [e]
+                                  (prn "Marking" id "as successfully reviewed")
+                                  (reset! revealed? false)
+                                  (mark-as-successfully-reviewed id)
+                                  (set-next-to-review))}
+                     [:i.material-icons.left "thumb_up"] "I KNOW!!!"]]
+
+              [:div [:a
+                     {:href "#"
+                      :class "waves-effect waves-light btn"
+                      :on-click (fn [e]
+                                  (prn "Marking " id "as UNsuccessfully reviewed")
+                                  (reset! revealed? false)
+                                  (mark-as-unsuccessfully-reviewed id)
+                                  (set-next-to-review))}
+                     [:i.material-icons.left "thumb_down"] "No idea :("]]])]]]))))
+
 
 (defn Add-Klicksters [text]
   [:div
@@ -275,7 +249,7 @@
     (set-next-to-review))
   
   (cond
-    (seq (get-being-reviewed)) [Card]
+    (seq (get-being-reviewed)) [RCard (get-being-reviewed)]
     (seq (all-reviewed)) [:div
                           [Add-Klicksters "There are no more Klicksters to review!"]
                           [:div.row.center-align>a {:href "#"
@@ -366,8 +340,6 @@
 
 
 (defn review [] (Review))
-(defn card [] (Card))
-(defn rcard [] (RCard {:id 5702, :photo "https://genome.klick.com/local-instance/staff images/5702_3525_sq.jpg", :name "Ashley Ho", :title "Medical Editor", :dept "Creative"}))
 (defn search [] (Search))
 
 (defn decklist []
@@ -388,9 +360,6 @@
 
 (secretary/defroute "/search" []
   (session/put! :current-page #'search))
-
-(secretary/defroute "/rcard" []
-  (session/put! :current-page #'rcard))
 
 (secretary/defroute "/list" []
   (session/put! :current-page #'decklist))

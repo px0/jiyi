@@ -162,7 +162,7 @@
 
 (defn RCard [user]
   (let [revealed? (atom false)
-        reveal-div-pos (anim/interpolate-if revealed? -300 60)]
+        reveal-div-pos (anim/interpolate-if revealed? -300 70)]
     (fn [user]
       (let [{:keys [id photo name title dept]} user]
         [:div {:class "z-depth-2"
@@ -178,16 +178,11 @@
           (when @revealed?
             [:div.row {:style {:margin-bottom 0}}
              [:div  {:style {:position :absolute
-                             :bottom @reveal-div-pos 
-                             :background :white
-                             :width 520
-                             :height 220
-                             :opacity 0.6}}]
-             
-             [:div  {:style {:position :absolute
-                             :bottom @reveal-div-pos 
-                             :width 520
-                             :height 220}}
+                             :bottom @reveal-div-pos
+                             :background-color "rgba(255,255,255,0.6)"
+                             :width 510
+                             :height 250
+                             :padding-bottom 10}}
               [:p
                [:h1 name]
                [:h5 title]
@@ -292,9 +287,6 @@
         search-results (atom [])
         search-channel (chan)
         <search-user-delayed (debounce search-channel 300)]
-    #_(add-watch search-results :search-results
-                 (fn  [k r o n]
-                   (prn k n)))
     (go-loop []
       (let [keyword (<! <search-user-delayed)
             result (<! (<search-user keyword))]

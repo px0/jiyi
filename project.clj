@@ -19,7 +19,8 @@
                  [org.clojure/clojurescript "1.7.122" :scope "provided"]
                  [cljs-http "0.1.37"]
                  [timothypratley/reanimated "0.1.1"]
-                 [secretary "1.2.3"]]
+                 [secretary "1.2.3"]
+                 [markdown-clj "0.9.80"]]
 
   :plugins [[lein-environ "1.0.1"]
             [lein-asset-minifier "0.2.3" :exclusions [org.clojure/clojure]]]

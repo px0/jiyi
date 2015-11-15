@@ -8,8 +8,8 @@
             [alandipert.storage-atom :refer [local-storage]]
             [cljs-http.client :as http]
             [timothypratley.reanimated.core :as anim]
-            [cljs.core.async :refer [<! chan put! >!] :as async]
-            )
+            [cljs.core.async :refer [<! chan put! take! >!] :as async]
+            [markdown.core :refer [md->html] :as markdown])
   (:import goog.History))
 
 
@@ -332,6 +332,20 @@
                     [:i.material-icons "delete"]]])
                 (all-in-deck)))]])
 
+(defn About
+"Take the readme, render it to HTML, and set it as the element!"
+  []
+  (let [readme (atom "")]
+    (take! (http/get "/README.md")
+           (fn [val]
+             (let [content-md (-> val
+                               :body
+                               markdown/md->html)]
+               (prn val)
+               (reset! readme content-md))))
+    (fn []
+      [:div {:dangerouslySetInnerHTML {:__html @readme}
+             :style {:text-align :left}}])))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Routes
@@ -339,6 +353,9 @@
 
 (defn review [] (Review))
 (defn search [] (Search))
+(defn about [] (About))
+
+
 
 (defn decklist []
   (if-not (empty? (all-in-deck))
@@ -361,6 +378,10 @@
 
 (secretary/defroute "/list" []
   (session/put! :current-page #'decklist))
+
+(secretary/defroute "/about" []
+  (session/put! :current-page #'about))
+
 
 ;; -------------------------
 ;; History

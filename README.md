@@ -36,6 +36,12 @@ the frontend technology. The frontend framework is
 The source code should be relatively straight-forward, if you're
 familiar with those technologies, but feel free to ask me anything.
 
+## Run in Dev mode
+`lein figwheel` and connect to [http://localhost:3449](http://localhost:3449)
+
+## Create a production build
+Run this to build the project in a production config: `lein clean && lein with-profile prod cljsbuild once`
+
 ## Emacs notes
 
 Emacs/Cider: Connect to the running figwheel instance and have cider

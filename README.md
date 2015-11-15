@@ -1,3 +1,6 @@
+# Where can I try it?
+There is a live version of this here: [http://klickwho.px0.de](http://klickwho.px0.de)
+
 # What's this?
 
 With Genome now having fancy new pictures, I thought it would be nice

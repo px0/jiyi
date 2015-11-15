@@ -24,7 +24,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Actions
 
-
 ;; Network
 (defn- extract-content [] (map #(-> % :body :Entries)))
 
@@ -158,7 +157,10 @@
   ([msg length]
    (.toast js/Materialize msg length)))
 
-
+(defn window-width [] (max document.documentElement.clientWidt window.innerWidth))
+(defn window-too-small?
+  "Is the window teeny-tiny and can't handle button texts?"
+  [] (<= (window-width) 450))
 
 (defn RCard [user]
   (let [revealed? (atom false)
@@ -169,22 +171,23 @@
                :style {:max-width "500px"
                        :position "relative"
                        :border-radius "2px"
-                       :overflow :hidden
-                       }}
+                       :overflow :hidden}}
          [:div.card-image.waves-effect.waves-block.waves-light
           [:img {:src photo
                  :style {:width "100%"}}]
 
           (when @revealed?
             [:div.row {:style {:margin-bottom 0}}
-             [:div  {:style {:position :absolute
-                             :bottom @reveal-div-pos
-                             :background-color "rgba(255,255,255,0.6)"
-                             :width 510
-                             :height 250
-                             :padding-bottom 10}}
-              [:p
-               [:h1 name]
+             [:div.col.s12  {:style {:position :absolute
+                                     :left 0
+                                     :padding 10
+                                     :right 0
+                                     :bottom @reveal-div-pos
+                                     :background-color "rgba(255,255,255,0.6)"}}
+              [:p  
+               [:h1 {:style {:overflow :hidden
+                             :text-overflow :ellipsis}}
+                name]
                [:h5 title]
                [:h5 dept]]]])
 
@@ -192,7 +195,6 @@
            (if-not @revealed?
              [:div {:style {:bottom 0
                             :background :white
-                            :width 500
                             :display :flex
                             :justify-content :center
                             :align-items :center
@@ -202,14 +204,10 @@
                [:i.material-icons.left "visibility"] "Reveal"]]
 
              ;; if revealed
-             [:div.row {:style {:display :flex
-                                :justify-content :space-between
-                                :flex-direction :row
-                                :align-items :center
-                                :margin-bottom 0
-                                :padding 15}}
-              [:div.spacer] ;somehow needed for the stupid layout!
-              [:div [:a
+             [:div.row {:style {:margin-bottom 0
+                                :padding 15
+                               }}
+              [:div.col.s5 [:a
                      {:href "#"
                       :class "waves-effect waves-light btn"
                       :on-click (fn [e]
@@ -217,9 +215,13 @@
                                   (reset! revealed? false)
                                   (mark-as-successfully-reviewed id)
                                   (set-next-to-review))}
-                     [:i.material-icons.left "thumb_up"] "I KNOW!!!"]]
+                            (if-not (window-too-small?)
+                              [:div
+                               [:i.material-icons.left "thumb_up"]
+                               "YAY!!!"])
+                               [:i.material-icons "thumb_up"]]]
 
-              [:div [:a
+              [:div.col.offset-s2.s5 [:a
                      {:href "#"
                       :class "waves-effect waves-light btn"
                       :on-click (fn [e]
@@ -227,7 +229,11 @@
                                   (reset! revealed? false)
                                   (mark-as-unsuccessfully-reviewed id)
                                   (set-next-to-review))}
-                     [:i.material-icons.left "thumb_down"] "No idea :("]]])]]]))))
+                                      (if-not (window-too-small?)
+                                        [:div
+                                         [:i.material-icons.left "thumb_down"]
+                                         "Who!?!"]
+                                         [:i.material-icons "thumb_down"])]]])]]]))))
 
 
 (defn Add-Klicksters [text]

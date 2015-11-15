@@ -1,6 +1,3 @@
-# Where can I try it?
-There is a live version of this here: [http://klickwho.px0.de](http://klickwho.px0.de)
-
 # What's this?
 
 With Genome now having fancy new pictures, I thought it would be nice
@@ -21,8 +18,10 @@ were trying to learn if you switch between browsers or devices.
 
 If something doesn't work, you are probably not
 [Logged into Genome](http://genome.klick.com). Do that, and then try
-again. If it still doesn't work, let me know!
+again. If it still oesn't work, let me know!
 
+# Where can I try it?
+There is a live version of this here: [http://klickwho.px0.de](http://klickwho.px0.de)
 
 # Development
 
